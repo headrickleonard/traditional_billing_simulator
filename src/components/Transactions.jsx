@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Typography, Grid, Paper, TextField, Button, Box, Select, MenuItem, FormControl, InputLabel, CircularProgress } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useSendSms, useMakeVoiceCall, useConsumeInternet, useAllUsers } from '../api/hooks';
 import { useSnackbar } from 'notistack';
+import VoiceCallTimer from './VoiceCallTimer';
 
 const smsSchema = z.object({
   sender: z.string().min(1, 'Sender is required'),
@@ -15,7 +16,6 @@ const smsSchema = z.object({
 const callSchema = z.object({
   sender: z.string().min(1, 'Sender is required'),
   receiver: z.string().min(1, 'Receiver is required'),
-  duration: z.number().min(1, 'Duration must be at least 1 second'),
 });
 
 const internetSchema = z.object({
@@ -23,9 +23,8 @@ const internetSchema = z.object({
   dataSize: z.number().min(1, 'Data size must be at least 1 MB'),
 });
 
-
-const TransactionForm = ({ title, schema, onSubmit, fields, users, isLoading }) => {
-  const { control, handleSubmit, reset } = useForm({
+const TransactionForm = ({ title, schema, onSubmit, fields, users, isLoading, submitLabel }) => {
+  const { control, handleSubmit, reset, watch } = useForm({
     resolver: zodResolver(schema),
   });
   const { enqueueSnackbar } = useSnackbar();
@@ -90,7 +89,7 @@ const TransactionForm = ({ title, schema, onSubmit, fields, users, isLoading }) 
           sx={{ mt: 2 }}
           disabled={isLoading}
         >
-          {isLoading ? <CircularProgress size={24} /> : 'Submit'}
+          {isLoading ? <CircularProgress size={24} /> : submitLabel || 'Submit'}
         </Button>
       </form>
     </Paper>
@@ -98,53 +97,104 @@ const TransactionForm = ({ title, schema, onSubmit, fields, users, isLoading }) 
 };
 
 const Transactions = () => {
+  const { enqueueSnackbar } = useSnackbar();
+  const { data: usersResponse, isLoading: isLoadingUsers } = useAllUsers();
   const sendSmsMutation = useSendSms();
   const makeVoiceCallMutation = useMakeVoiceCall();
   const consumeInternetMutation = useConsumeInternet();
-  const { data: usersResponse, isLoading: isLoadingUsers, error: usersError } = useAllUsers();
+
+  const [isCallSetup, setIsCallSetup] = useState(false);
+  const [callSender, setCallSender] = useState('');
+  const [callReceiver, setCallReceiver] = useState('');
 
   const users = usersResponse?.[0]?.data || [];
 
+  const onSendSms = async (data) => {
+    await sendSmsMutation.mutateAsync(data);
+  };
+
+  const onSetupVoiceCall = async (data) => {
+    const sender = users.find(user => user.msisdn === data.sender);
+    if (sender.balance <= 0) {
+      enqueueSnackbar('Insufficient balance to make a call', { variant: 'error' });
+      return;
+    }
+    setCallSender(data.sender);
+    setCallReceiver(data.receiver);
+    setIsCallSetup(true);
+  };
+
+  const onCallEnd = async (duration) => {
+    try {
+      await makeVoiceCallMutation.mutateAsync({ sender: callSender, receiver: callReceiver, duration });
+      setIsCallSetup(false);
+      enqueueSnackbar('Call ended successfully', { variant: 'success' });
+    } catch (error) {
+      enqueueSnackbar(error.message || 'Failed to end call', { variant: 'error' });
+    }
+  };
+
+  const onInsufficientBalance = () => {
+    enqueueSnackbar('Insufficient balance to continue the call', { variant: 'error' });
+    setIsCallSetup(false);
+  };
+
+  const onConsumeInternet = async (data) => {
+    await consumeInternetMutation.mutateAsync(data);
+  };
+
   if (isLoadingUsers) return <CircularProgress />;
-  if (usersError) return <Typography color="error">Error loading users: {usersError.message}</Typography>;
 
   return (
     <Box>
       <Typography variant="h4" gutterBottom>Transactions</Typography>
       <Grid container spacing={3}>
         <Grid item xs={12} md={4}>
-          <TransactionForm
+          <TransactionForm 
             title="Send SMS"
             schema={smsSchema}
-            onSubmit={sendSmsMutation.mutateAsync}
+            onSubmit={onSendSms}
             fields={[
               { name: 'sender', label: 'Sender', type: 'select' },
               { name: 'receiver', label: 'Receiver', type: 'select' },
-              { name: 'content', label: 'Content' },
+              { name: 'content', label: 'Content', type: 'text' },
             ]}
             users={users}
             isLoading={sendSmsMutation.isLoading}
           />
         </Grid>
         <Grid item xs={12} md={4}>
-          <TransactionForm
-            title="Make Voice Call"
-            schema={callSchema}
-            onSubmit={makeVoiceCallMutation.mutateAsync}
-            fields={[
-              { name: 'sender', label: 'Sender', type: 'select' },
-              { name: 'receiver', label: 'Receiver', type: 'select' },
-              { name: 'duration', label: 'Duration (seconds)', type: 'number' },
-            ]}
-            users={users}
-            isLoading={makeVoiceCallMutation.isLoading}
-          />
+          {!isCallSetup ? (
+            <TransactionForm 
+              title="Make Voice Call"
+              schema={callSchema}
+              onSubmit={onSetupVoiceCall}
+              fields={[
+                { name: 'sender', label: 'Sender', type: 'select' },
+                { name: 'receiver', label: 'Receiver', type: 'select' },
+              ]}
+              users={users}
+              isLoading={makeVoiceCallMutation.isLoading}
+              submitLabel="Continue"
+            />
+          ) : (
+            <Paper sx={{ p: 2, height: '100%' }}>
+              <Typography variant="h6" gutterBottom>Make Voice Call</Typography>
+              <VoiceCallTimer
+                sender={callSender}
+                receiver={callReceiver}
+                onCallEnd={onCallEnd}
+                isLoading={makeVoiceCallMutation.isLoading}
+                onInsufficientBalance={onInsufficientBalance}
+              />
+            </Paper>
+          )}
         </Grid>
         <Grid item xs={12} md={4}>
-          <TransactionForm
+          <TransactionForm 
             title="Consume Internet"
             schema={internetSchema}
-            onSubmit={consumeInternetMutation.mutateAsync}
+            onSubmit={onConsumeInternet}
             fields={[
               { name: 'consumer', label: 'Consumer', type: 'select' },
               { name: 'dataSize', label: 'Data Size (MB)', type: 'number' },

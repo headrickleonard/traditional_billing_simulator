@@ -14,8 +14,6 @@ import {
   Box,
   CircularProgress,
   Grid,
-  Fab,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -23,9 +21,20 @@ import {
   List,
   ListItem,
   ListItemText,
+  SpeedDial,
+  SpeedDialIcon,
+  SpeedDialAction,
+  IconButton,
   Avatar,
   Divider
 } from "@mui/material";
+import {
+  Add as AddIcon,
+  PersonAdd as PersonAddIcon,
+  Casino as CasinoIcon,
+  Visibility as VisibilityIcon,
+  Person as PersonIcon,
+} from "@mui/icons-material";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -36,11 +45,6 @@ import {
   useUserDetails,
 } from "../api/hooks";
 import { useSnackbar } from "notistack";
-import {
-  Add as AddIcon,
-  Person as PersonIcon,
-  Visibility as VisibilityIcon,
-} from "@mui/icons-material";
 import { styled } from '@mui/material/styles';
 
 const schema = z.object({
@@ -53,7 +57,7 @@ const schema = z.object({
   nin: z.string().min(1, "NIN is required"),
 });
 
-const RegisterUserForm = ({ onSubmit, isLoading }) => {
+const UserRegistrationForm = ({ onSubmit, isLoading }) => {
   const { control, handleSubmit, reset } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { name: "", balance: "0", nin: "" },
@@ -150,9 +154,8 @@ const UsersTable = ({
         <TableHead>
           <TableRow>
             <TableCell>Name</TableCell>
-            <TableCell>Balance</TableCell>
-            <TableCell>NIN</TableCell>
             <TableCell>MSISDN</TableCell>
+            <TableCell>Balance</TableCell>
             <TableCell>Actions</TableCell>
           </TableRow>
         </TableHead>
@@ -162,9 +165,8 @@ const UsersTable = ({
             .map((user) => (
               <TableRow key={user.userId}>
                 <TableCell>{user.name}</TableCell>
-                <TableCell>{user.balance.toFixed(2)}</TableCell>
-                <TableCell>{user.nin}</TableCell>
                 <TableCell>{user.msisdn}</TableCell>
+                <TableCell>${user.balance.toFixed(2)}</TableCell>
                 <TableCell>
                   <IconButton
                     onClick={() => onViewDetails(user.msisdn)}
@@ -189,7 +191,6 @@ const UsersTable = ({
     />
   </Paper>
 );
-
 const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiDialogContent-root': {
     padding: theme.spacing(3),
@@ -287,14 +288,16 @@ const UserManagement = () => {
   } = useAllUsers();
   const registerUserMutation = useRegisterUser();
   const generateRandomUsersMutation = useGenerateRandomUsers();
+  // const userDetailsMutation = useUserDetails();
+  // const [selectedMSISDN, setSelectedMSISDN] = useState(null);
   const [selectedMSISDN, setSelectedMSISDN] = useState(null);
   const userDetailsMutation = useUserDetails();
   const { data: selectedUserDetails, isLoading: isLoadingUserDetails } =
     useUserDetails(selectedMSISDN);
-
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [userDetailsModalOpen, setUserDetailsModalOpen] = useState(false);
+  const [registerUserDialogOpen, setRegisterUserDialogOpen] = useState(false);
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -305,11 +308,12 @@ const UserManagement = () => {
     setPage(0);
   };
 
-  const onSubmit = async (data) => {
+  const handleRegisterUser = async (data) => {
     try {
       await registerUserMutation.mutateAsync(data);
       refetch();
       enqueueSnackbar("User registered successfully", { variant: "success" });
+      setRegisterUserDialogOpen(false);
     } catch (error) {
       enqueueSnackbar(error.message || "Failed to register user", {
         variant: "error",
@@ -319,7 +323,7 @@ const UserManagement = () => {
 
   const handleGenerateRandom = async () => {
     try {
-      await generateRandomUsersMutation.mutateAsync({ count: 5 });
+      await generateRandomUsersMutation.mutateAsync();
       refetch();
       enqueueSnackbar("Random users generated successfully", {
         variant: "success",
@@ -346,15 +350,6 @@ const UserManagement = () => {
         User Management
       </Typography>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <RegisterUserForm
-            onSubmit={onSubmit}
-            isLoading={registerUserMutation.isLoading}
-          />
-        </Grid>
-      </Grid>
-
       <UsersTable
         users={users}
         page={page}
@@ -364,18 +359,37 @@ const UserManagement = () => {
         onViewDetails={handleViewDetails}
       />
 
-      <Fab
-        color="secondary"
-        sx={{ position: "fixed", bottom: 16, right: 16 }}
-        onClick={handleGenerateRandom}
-        disabled={generateRandomUsersMutation.isLoading}
+      <SpeedDial
+        ariaLabel="User management actions"
+        sx={{ position: "fixed", bottom: 36, right: 24 }}
+        icon={<SpeedDialIcon />}
       >
-        {generateRandomUsersMutation.isLoading ? (
-          <CircularProgress size={24} color="inherit" />
-        ) : (
-          <AddIcon />
-        )}
-      </Fab>
+        <SpeedDialAction
+          icon={<PersonAddIcon />}
+          tooltipTitle="Register User"
+          onClick={() => setRegisterUserDialogOpen(true)}
+        />
+        <SpeedDialAction
+          icon={<CasinoIcon />}
+          tooltipTitle="Generate Random Users"
+          onClick={handleGenerateRandom}
+        />
+      </SpeedDial>
+
+      <Dialog
+        open={registerUserDialogOpen}
+        onClose={() => setRegisterUserDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Register New User</DialogTitle>
+        <DialogContent>
+          <UserRegistrationForm
+            onSubmit={handleRegisterUser}
+            isLoading={registerUserMutation.isLoading}
+          />
+        </DialogContent>
+      </Dialog>
 
       <UserDetailsModal
         open={userDetailsModalOpen}
