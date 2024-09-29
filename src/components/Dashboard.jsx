@@ -29,7 +29,9 @@ import {
   TrendingUp,
 } from "@mui/icons-material";
 import { lighten } from "@mui/material/styles";
+
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
+const USD_TO_TZS = 1; // Conversion rate from USD to TZS
 
 const StatCard = ({ title, value, icon, color }) => (
   <Card
@@ -111,7 +113,10 @@ const Dashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Balance"
-            value={`$${stats.totalBalance.toFixed(2)}`}
+            value={`${(stats.totalBalance * USD_TO_TZS).toLocaleString(
+              "en-TZ",
+              { style: "currency", currency: "TZS" }
+            )}`}
             icon={<AttachMoney fontSize="large" />}
             color="#4caf50"
           />
@@ -119,7 +124,10 @@ const Dashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Avg Balance"
-            value={`$${stats.averageBalance.toFixed(2)}`}
+            value={`${(stats.averageBalance * USD_TO_TZS).toLocaleString(
+              "en-TZ",
+              { style: "currency", currency: "TZS" }
+            )}`}
             icon={<DataUsage fontSize="large" />}
             color="#ff9800"
           />
@@ -127,7 +135,10 @@ const Dashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Top Balance"
-            value={`$${stats.topUsers[0]?.balance.toFixed(2)}`}
+            value={`${(stats.topUsers[0]?.balance * USD_TO_TZS).toLocaleString(
+              "en-TZ",
+              { style: "currency", currency: "TZS" }
+            )}`}
             icon={<TrendingUp fontSize="large" />}
             color="#e91e63"
           />
@@ -144,7 +155,12 @@ const Dashboard = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip
+                  formatter={(value) => [
+                    `TZS ${value.toLocaleString()}`,
+                    "Balance",
+                  ]}
+                />
                 <Legend />
                 <Bar dataKey="balance" fill="#8884d8" />
               </BarChart>
@@ -179,7 +195,12 @@ const Dashboard = () => {
                     />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip
+                  formatter={(value) => [
+                    `TZS ${value.toLocaleString()}`,
+                    "Count",
+                  ]}
+                />
               </PieChart>
             </ResponsiveContainer>
           </Paper>

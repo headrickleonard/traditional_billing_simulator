@@ -145,3 +145,14 @@ export const updateUserBalance = async (MSISDN, newBalance) => {
     console.error(error);
   }
 };
+
+
+// 13.get all transactions
+export const getAllTransactions = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}/api/v1/traditional-transactions/all`);
+    return response.data;
+  } catch (error) {
+    console.error(error);
+  }
+};

@@ -321,9 +321,25 @@ const UserManagement = () => {
     }
   };
 
+  // const handleGenerateRandom = async () => {
+  //   try {
+  //     await generateRandomUsersMutation.mutateAsync();
+  //     refetch();
+  //     enqueueSnackbar("Random users generated successfully", {
+  //       variant: "success",
+  //     });
+  //   } catch (error) {
+  //     enqueueSnackbar(error.message || "Failed to generate random users", {
+  //       variant: "error",
+  //     });
+  //   }
+  // };
+
   const handleGenerateRandom = async () => {
     try {
-      await generateRandomUsersMutation.mutateAsync();
+      // Pass the count of users you want to generate
+      const count = 10; // Replace with your desired number
+      await generateRandomUsersMutation.mutateAsync({ count });
       refetch();
       enqueueSnackbar("Random users generated successfully", {
         variant: "success",
@@ -334,6 +350,7 @@ const UserManagement = () => {
       });
     }
   };
+  
 
   const handleViewDetails = (msisdn) => {
     setSelectedMSISDN(msisdn);

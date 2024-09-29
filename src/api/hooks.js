@@ -54,3 +54,6 @@ export function useGenerateRandomUsers() {
 export function useUpdateUserBalance() {
   return useMutation(({ MSISDN, newBalance }) => api.updateUserBalance(MSISDN, newBalance));
 }
+export function useGetAllTransactions() {
+  return useQuery('transactions', () => api.getAllTransactions());
+}
